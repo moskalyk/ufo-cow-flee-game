@@ -36,3 +36,23 @@
     transform: rotate(360deg);
   }
 }
+
+html {
+  background: #030818;
+}
+
+.ufo {
+  width: 200px;
+  animation: floating 7s infinite;
+  outline: none;
+}
+
+.ufo:hover {
+  outline: none;
+}
+
+@keyframes floating {
+  0% { transform: translate(0,  0px); }
+  50%  { transform: translate(0, 10px); }
+  100%   { transform: translate(0, -0px); }   
+}
