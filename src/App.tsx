@@ -9,25 +9,42 @@ function getRandomValue() {
   return Math.floor(Math.random() * (520 - (-520) + 1) + (-520));
 }
 
-function ImageSlider() {
+function isBetween(num: number, lowerBound: number, upperBound: number, threshold: number) {
+  return Math.abs(num - lowerBound) <= threshold && Math.abs(num - upperBound) <= threshold;
+}
+
+function ImageSlider(props: any) {
   const [position, setPosition] = useState(0);
   const [init, setInit] = useState(false)
   const [rayTeleport, setRayTeleport] = useState(false)
   React.useEffect(() => {
-    if(!init){
-      setInterval(() => {
-        setPosition(getRandomValue())
-        setTimeout(() => {
+     let timer = setInterval(() => {
+      const ufoPosition = getRandomValue()
+        setPosition(ufoPosition)
+        setTimeout((ufoPosition: any) => {
           setRayTeleport(true)
+          const gameOverInterval = setInterval(() => {
+            
+            if(isBetween(props.cowPosition, ufoPosition, ufoPosition, 120)){
+              alert('GAME OVER')
+              console.log('cow ->', props.cowPosition)
+              console.log(ufoPosition)
+            }else {
+              console.log('safe')
+              console.log('cow ->', props.cowPosition)
+              console.log('ufo ->', ufoPosition)
+            }
+            clearInterval(gameOverInterval)
+          }, 200)
           setTimeout(() => {
             setRayTeleport(false)
-          }, 3000)
-        }, 2000)
-      }, 5000)
-      // window.addEventListener("keydown", handleKeyDown, true);
-      setInit(true)
-    }
-  }, [rayTeleport])
+          }, 2000)
+        }, 1000, ufoPosition)
+      }, 3000)
+    return () => {
+      window.clearInterval(timer)
+    };
+  }, [props.cowPosition, rayTeleport, position])
 
   return (
     <div
@@ -66,28 +83,26 @@ function ImageSlider() {
   );
 }
 
-function CowControl() {
+function CowControl(props: any) {
 
-  const [position, setPosition] = useState(0);
+  // const [position, setPosition] = useState(0);
   const [right, setRight] = useState<any>(null)
   const [init, setInit] = useState(false)
 
   const handleKeyDown = (event: any) => {
-    console.log(position)
-    console.log(position > -519)
-    if(position != 520 && position != 520*-1){
+    if(props.cowPosition != 520 && props.cowPosition != 520*-1){
       if (event.keyCode === 37) { // left arrow
-        setPosition(position - 40);
+        props.setCowPosition(props.cowPosition - 40);
         setRight(false)
       } else if (event.keyCode === 39) { // right arrow
-        setPosition(position + 40);
+        props.setCowPosition(props.cowPosition + 40);
         setRight(true)
       }
     }else {
-      if(position == -520){
-        setPosition(position + 40);
+      if(props.cowPosition == -520){
+        props.setCowPosition(props.cowPosition + 40);
       }else {
-        setPosition(position - 40);
+        props.setCowPosition(props.cowPosition - 40);
       }
     }
   };
@@ -109,7 +124,7 @@ function CowControl() {
           width: "14vw" , 
           position: 'fixed', 
           bottom: '20px',
-          left: `${position}px`,
+          left: `${props.cowPosition}px`,
           transition: "left 2s",
           marginTop: '84vh',
           marginLeft: '40.5vw',
@@ -121,10 +136,12 @@ function CowControl() {
 }
 
 function App() {
+  const [cowPosition, setCowPosition] = useState(0)
+
   return (
     <div className="App">
-      <ImageSlider/>
-      <CowControl/>
+      <ImageSlider cowPosition={cowPosition}/>
+      <CowControl cowPosition={cowPosition} setCowPosition={setCowPosition} />
     </div>
   );
 }
