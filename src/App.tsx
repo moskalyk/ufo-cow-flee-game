@@ -3,7 +3,7 @@ import logo from './logo.svg';
 import './App.css';
 import ufo from './ufo.png'
 import ray from './ray.png'
-import cow from './cow.png'
+import cow from './cow_with_rollerblades.png'
 
 function getRandomValue() {
   return Math.floor(Math.random() * (520 - (-520) + 1) + (-520));
@@ -72,6 +72,7 @@ function UfoSky(props: any) {
         rayTeleport ? 
         <img src={ray} 
         style={{
+          zIndex: 100,
           width: "20vw",
           position: "absolute",
           left: `${position}px`,
@@ -149,7 +150,7 @@ function App() {
       console.log('setting high score')
       localStorage.setItem('highscore', String(score) )
     }
-    
+
     setHighScore(Number(localStorage.getItem("highscore")))
 
     const listener = () => {
