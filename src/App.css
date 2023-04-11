@@ -56,3 +56,17 @@ html {
   50%  { transform: translate(0, 10px); }
   100%   { transform: translate(0, -0px); }   
 }
+
+.instructions {
+  color: white;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+}
+
+.score {
+  color: white;
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+}

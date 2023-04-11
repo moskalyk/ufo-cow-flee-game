@@ -13,7 +13,7 @@ function isBetween(num: number, lowerBound: number, upperBound: number, threshol
   return Math.abs(num - lowerBound) <= threshold && Math.abs(num - upperBound) <= threshold;
 }
 
-function ImageSlider(props: any) {
+function UfoSky(props: any) {
   const [position, setPosition] = useState(0);
   const [init, setInit] = useState(false)
   const [rayTeleport, setRayTeleport] = useState(false)
@@ -24,15 +24,16 @@ function ImageSlider(props: any) {
         setTimeout((ufoPosition: any) => {
           setRayTeleport(true)
           const gameOverInterval = setInterval(() => {
-            
             if(isBetween(props.cowPosition, ufoPosition, ufoPosition, 120)){
               alert('GAME OVER')
-              console.log('cow ->', props.cowPosition)
-              console.log(ufoPosition)
+              if(props.score > Number(localStorage.getItem('highscore'))){
+                console.log('setting high score')
+                localStorage.setItem('highscore', String(props.score) )
+              }
+              props.setScore(0)
             }else {
-              console.log('safe')
-              console.log('cow ->', props.cowPosition)
-              console.log('ufo ->', ufoPosition)
+              console.log(props.score)
+              console.log( Number(localStorage.getItem('highscore')))
             }
             clearInterval(gameOverInterval)
           }, 200)
@@ -40,11 +41,13 @@ function ImageSlider(props: any) {
             setRayTeleport(false)
           }, 2000)
         }, 1000, ufoPosition)
+
+        props.setScore((prev: any) => prev + 10)
       }, 3000)
     return () => {
       window.clearInterval(timer)
     };
-  }, [props.cowPosition, rayTeleport, position])
+  }, [props.cowPosition, rayTeleport, position, props.score])
 
   return (
     <div
@@ -137,11 +140,35 @@ function CowControl(props: any) {
 
 function App() {
   const [cowPosition, setCowPosition] = useState(0)
+  const [score, setScore] = useState(0)
+  const [highScore, setHighScore] = useState(Number(localStorage.getItem("highscore")))
+
+  React.useEffect(() => {
+
+    if(score > Number(localStorage.getItem('highscore'))){
+      console.log('setting high score')
+      localStorage.setItem('highscore', String(score) )
+    }
+    
+    setHighScore(Number(localStorage.getItem("highscore")))
+
+    const listener = () => {
+      setHighScore(Number(localStorage.getItem("highscore")))
+    }
+
+    window.addEventListener("storage", listener);
+
+    return () => {
+      window.removeEventListener("storage", listener);
+    };
+  }, [score])
 
   return (
     <div className="App">
-      <ImageSlider cowPosition={cowPosition}/>
+      <UfoSky score={score} setScore={setScore} cowPosition={cowPosition}/>
       <CowControl cowPosition={cowPosition} setCowPosition={setCowPosition} />
+      <div className='instructions'>{'click on the cow and navigate with < > keys'}</div>
+      <div className='score'>{`score: ${score} | highscore: ${highScore}`}</div>
     </div>
   );
 }
