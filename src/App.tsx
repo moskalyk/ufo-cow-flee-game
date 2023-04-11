@@ -12,26 +12,22 @@ function getRandomValue() {
 function ImageSlider() {
   const [position, setPosition] = useState(0);
   const [init, setInit] = useState(false)
-
-  const handleKeyDown = (event: any) => {
-    console.log(position)
-    console.log(position > -519)
-      if (event.keyCode === 37) { // left arrow
-        setPosition(position - 40);
-      } else if (event.keyCode === 39) { // right arrow
-        setPosition(position + 40);
-      }
-  };
-
+  const [rayTeleport, setRayTeleport] = useState(false)
   React.useEffect(() => {
     if(!init){
       setInterval(() => {
         setPosition(getRandomValue())
+        setTimeout(() => {
+          setRayTeleport(true)
+          setTimeout(() => {
+            setRayTeleport(false)
+          }, 3000)
+        }, 2000)
       }, 5000)
       // window.addEventListener("keydown", handleKeyDown, true);
       setInit(true)
     }
-  }, [])
+  }, [rayTeleport])
 
   return (
     <div
@@ -41,8 +37,6 @@ function ImageSlider() {
         justifyContent: "center",
         outline: 'none'
       }}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
     >
       <img
         src={ufo}
@@ -54,7 +48,9 @@ function ImageSlider() {
         }}
         alt="Random Image"
       />
-      <img src={ray} 
+      {
+        rayTeleport ? 
+        <img src={ray} 
         style={{
           width: "20vw",
           position: "absolute",
@@ -63,6 +59,9 @@ function ImageSlider() {
           marginTop: '84vh',
           marginLeft: '40.5vw'
         }}/>
+        : null
+      }
+      
     </div>
   );
 }
