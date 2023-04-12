@@ -4,6 +4,8 @@ import './App.css';
 import ufo from './ufo.png'
 import ray from './ray.png'
 import cow from './cow_with_rollerblades.png'
+import { ethers, utils } from "ethers";
+import { sequence } from '0xsequence'
 
 import { SequenceIndexerClient } from '@0xsequence/indexer'
 
@@ -24,7 +26,7 @@ function Leaderboard(){
   const populateLeaderboard = () => {
     setInterval(async () => {
         // here we query the joy contract address
-        const contractAddress = '0x761D7728FB98Fe451800e0346C8C6b8590477CFD'
+        const contractAddress = '0x98ba6152F1Bd913771AA80121A0EdbdA34BC9574'
 
         const filter = {
             contractAddress: contractAddress
@@ -39,10 +41,12 @@ function Leaderboard(){
 
         transactionHistory.transactions.map((tx: any) => {
           tx.transfers.map((transfer: any) => {
-            if(!leaderboard.has(transfer.to)){
-              leaderboardRaw.set(transfer.to, Number(BigInt(transfer.amounts[0]) / BigInt(1e18)))
-            }else {
-              leaderboardRaw.set(transfer.to, leaderboard.get(transfer.to)+Number(BigInt(transfer.amounts[0] / BigInt(1e18))))
+            if(transfer.from != '0x0000000000000000000000000000000000000000'){
+              if(!leaderboard.has(transfer.to)){
+                leaderboardRaw.set(transfer.to, Number(BigInt(transfer.amounts[0]) / BigInt(1e18)))
+              }else {
+                leaderboardRaw.set(transfer.to, leaderboard.get(transfer.to)+Number(BigInt(transfer.amounts[0] / BigInt(1e18))))
+              }
             }
           })
         })
@@ -79,6 +83,26 @@ function Leaderboard(){
   )
 }
 
+const sendScoreTx = async (sessionWalletAddress: string, sequenceWallet: string) => {
+  const nonce = 0
+  const output = utils.solidityPack([ 'address', 'address', 'uint'], [ sessionWalletAddress, sequenceWallet, nonce ])
+  const keccak = utils.solidityKeccak256(['bytes'], [output])
+
+  //recreate wallet from local storage
+  const wallet = new ethers.Wallet(localStorage.getItem('pkey')!);
+
+  const signature = await wallet.signMessage(ethers.utils.arrayify(keccak))
+
+  const res = await fetch('http://localhost:3001/transaction', 
+  { 
+      method: 'POST', 
+      headers: {
+          "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ethAuthProofString: "eth.", sig: signature, sessionWallet: sessionWalletAddress, sequenceWallet: sequenceWallet, nonce: nonce})
+  })
+}
+
 function UfoSky(props: any) {
 
   const [position, setPosition] = useState(0);
@@ -86,7 +110,7 @@ function UfoSky(props: any) {
   const [rayTeleport, setRayTeleport] = useState(false)
 
   React.useEffect(() => {
-     let timer = setInterval(() => {
+     let timer = setInterval(async () => {
       const ufoPosition = getRandomValue()
         setPosition(ufoPosition)
         setTimeout((ufoPosition: any) => {
@@ -106,11 +130,12 @@ function UfoSky(props: any) {
           }, 2000)
         }, 1000, ufoPosition)
         props.setScore((prev: any) => prev + 10)
+        // await sendScoreTx()
       }, 3000)
     return () => {
       window.clearInterval(timer)
     };
-  }, [props.cowPosition, rayTeleport, position, props.score])
+  }, [rayTeleport, position, props.score])
 
   return (
     <div
@@ -202,10 +227,51 @@ function CowControl(props: any) {
   )
 }
 
+function Login(props: any) {
+
+  const connect = async () => {
+    const wallet = sequence.getWallet()
+
+    const connectWallet = await wallet.connect({
+      app: 'UFO Cow Flee Game',
+      authorize: true,
+      networkId: 80001,
+      settings: {
+        theme: 'light'
+      }
+    })
+
+    if(connectWallet.connected == true) props.setIsLoggedIn(true)
+  }
+
+  return(
+    <>
+    <Leaderboard/>
+      <p className='App-header'>ufo cow flee game</p>
+      <img
+        src={ufo}
+        className="ufo"
+        style={{
+          width: "20vw",
+          position: "relative",
+          transition: "left 2s",
+        }}
+        alt="Random Image"
+      />
+      <br/>
+      <br/>
+      <button className='connect-button' onClick={connect}>login</button>
+    </>
+  )
+}
+
 function App() {
   const [cowPosition, setCowPosition] = useState(0)
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(Number(localStorage.getItem("highscore")))
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  sequence.initWallet('mumbai')
 
   React.useEffect(() => {
 
@@ -229,11 +295,18 @@ function App() {
 
   return (
     <div className="App">
-      <Leaderboard />
-      <UfoSky score={score} setScore={setScore} cowPosition={cowPosition}/>
-      <CowControl cowPosition={cowPosition} setCowPosition={setCowPosition} />
-      <div className='instructions'>{'click on the cow and navigate with < > keys'}</div>
-      <div className='score'>{`score: ${score} | highscore: ${highScore}`}</div>
+      {
+        isLoggedIn ? 
+        <>
+          <Leaderboard />
+          <UfoSky score={score} setScore={setScore} cowPosition={cowPosition}/>
+          <CowControl cowPosition={cowPosition} setCowPosition={setCowPosition} />
+          <div className='instructions'>{'click on the cow and navigate with < > keys'}</div>
+          <div className='score'>{`score: ${score} | highscore: ${highScore}`}</div>
+        </>
+        : <Login setIsLoggedIn={setIsLoggedIn}/>
+      }
+ 
     </div>
   );
 }
