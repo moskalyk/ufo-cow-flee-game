@@ -70,3 +70,11 @@ html {
   bottom: 20px;
   left: 20px;
 }
+
+.leaderboard {
+  z-index: 100;
+  color: white;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+}
