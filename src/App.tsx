@@ -26,7 +26,7 @@ function Leaderboard(){
   const populateLeaderboard = () => {
     setInterval(async () => {
         // here we query the joy contract address
-        const contractAddress = '0x98ba6152F1Bd913771AA80121A0EdbdA34BC9574'
+        const contractAddress = '0xCF12932b8a7450664e5C5499A2819804C3c08FD4'
 
         const filter = {
             contractAddress: contractAddress
@@ -34,10 +34,17 @@ function Leaderboard(){
 
         // query Sequence Indexer for all token transaction history on mumbai
         const transactionHistory = await indexer.getTransactionHistory({
-            filter: filter
+            filter: filter,
+            page : {
+              pageSize: 200
+            }
         })
 
+        console.log(transactionHistory.page.more)
+
         const leaderboardRaw = new Map()
+
+        console.log(transactionHistory)
 
         transactionHistory.transactions.map((tx: any) => {
           tx.transfers.map((transfer: any) => {
@@ -85,7 +92,7 @@ function Leaderboard(){
   )
 }
 
-const sendScoreTx = async (sessionWalletAddress: string, sequenceWallet: string) => {
+const sendScoreTx = async (amount: number, sessionWalletAddress: string, sequenceWallet: string) => {
   const nonce = 0
   const output = utils.solidityPack([ 'address', 'address', 'uint'], [ sessionWalletAddress, sequenceWallet, nonce ])
   const keccak = utils.solidityKeccak256(['bytes'], [output])
@@ -94,17 +101,31 @@ const sendScoreTx = async (sessionWalletAddress: string, sequenceWallet: string)
   const wallet = new ethers.Wallet(localStorage.getItem('sessionPrivateKey')!);
 
   const signature = await wallet.signMessage(ethers.utils.arrayify(keccak))
+  console.log(signature)
 
-  const res = await fetch('http://localhost:3001/transaction', 
-  { 
-      method: 'POST', 
-      headers: {
-          "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ethAuthProofString: "eth.", sig: signature, sessionWallet: sessionWalletAddress, sequenceWallet: sequenceWallet, nonce: nonce})
-  })
+  try{
+    const res = await fetch('http://localhost:3001/transaction', 
+    { 
+        method: 'POST', 
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          amount: Number(amount), 
+          ethAuthProofString: "eth.", 
+          sig: signature, 
+          sessionWallet: 
+          sessionWalletAddress, 
+          sequenceWallet: sequenceWallet, 
+          nonce: nonce
+        })
+    })
+  }catch(e){
+    console.log(e)
+  }
 }
 
+let block = false
 function UfoSky(props: any) {
 
   const [position, setPosition] = useState(0);
@@ -112,24 +133,32 @@ function UfoSky(props: any) {
   const [rayTeleport, setRayTeleport] = useState(false)
 
   React.useEffect(() => {
+    let gameOverInterval: any;
      let timer = setInterval(async () => {
       const ufoPosition = getRandomValue()
         setPosition(ufoPosition)
         setTimeout((ufoPosition: any) => {
           setRayTeleport(true)
-          const gameOverInterval = setInterval(async () => {
+          gameOverInterval = setInterval(async () => {
             if(isBetween(props.cowPosition, ufoPosition, ufoPosition, 120)){
-              alert('GAME OVER')
-              if(props.score > Number(localStorage.getItem('highscore'))){
-                const wallet = await sequence.getWallet()
-                const sessionWallet = new ethers.Wallet(localStorage.getItem('sessionPrivateKey')!);
+              
+              const wallet = await sequence.getWallet()
+              const sessionWallet = new ethers.Wallet(localStorage.getItem('sessionPrivateKey')!);
+              console.log(wallet)
+              if(props.score != 0 && !block){
+                props.setScore(0)
+                block = true
+                await sendScoreTx(props.score, sessionWallet.address, await wallet.getAddress())
+              }
 
-                await sendScoreTx(sessionWallet.address, await wallet.getAddress())
+              alert('GAME OVER')
+              block = false
+
+              if(props.score > Number(localStorage.getItem('highscore'))){
                 localStorage.setItem('highscore', String(props.score) )
               }
-              props.setScore(0)
+              clearInterval(gameOverInterval)
             }
-            clearInterval(gameOverInterval)
           }, 200)
           setTimeout(() => {
             setRayTeleport(false)
@@ -140,6 +169,7 @@ function UfoSky(props: any) {
       }, 3000)
     return () => {
       window.clearInterval(timer)
+      window.clearInterval(gameOverInterval)
     };
   }, [rayTeleport, position, props.score])
 
@@ -177,7 +207,6 @@ function UfoSky(props: any) {
         }}/>
         : null
       }
-      
     </div>
   );
 }
@@ -244,7 +273,7 @@ function Login(props: any) {
       authorize: true,
       networkId: 80001,
       settings: {
-        theme: 'light'
+        theme: 'dark'
       }
     })
 
@@ -268,7 +297,7 @@ function Login(props: any) {
       setTimeout(async () => {
         const signature = await signer.signMessage(authorizationMessage)
         console.log(signature)
-      }, 500)
+      }, 200)
     }catch(e){
       console.log(e)
     }
@@ -339,7 +368,6 @@ function App() {
         </>
         : <Login setIsLoggedIn={setIsLoggedIn}/>
       }
- 
     </div>
   );
 }
