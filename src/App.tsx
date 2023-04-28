@@ -126,6 +126,28 @@ const sendScoreTx = async (amount: number, sessionWalletAddress: string, sequenc
 }
 
 let block = false
+let authorizing = false
+
+const authorizeDevice = async () => {
+    authorizing = true
+    block = true
+    const authorizationMessage = `Authorize this device to play this game.`
+    const walletSignedIn = sequence.getWallet()
+    
+    const signer = await walletSignedIn.getSigner()
+    console.log(signer)
+
+    try{
+      setTimeout(async () => {
+        const signature = await signer.signMessage(authorizationMessage)
+        console.log(signature)
+        block = true
+        authorizing = false
+      }, 200)
+    }catch(e){
+      console.log(e)
+    }
+}
 function UfoSky(props: any) {
 
   const [position, setPosition] = useState(0);
@@ -133,45 +155,73 @@ function UfoSky(props: any) {
   const [rayTeleport, setRayTeleport] = useState(false)
 
   React.useEffect(() => {
+    if(!init){
+      if(props.mode == 'noconf') authorizeDevice()
+      setInit(true)
+    }
+  })
+
+  React.useEffect(() => {
     let gameOverInterval: any;
      let timer = setInterval(async () => {
-      const ufoPosition = getRandomValue()
-        setPosition(ufoPosition)
-        setTimeout((ufoPosition: any) => {
-          setRayTeleport(true)
-          gameOverInterval = setInterval(async () => {
-            if(isBetween(props.cowPosition, ufoPosition, ufoPosition, 120)){
-              
-              const wallet = await sequence.getWallet()
-              const sessionWallet = new ethers.Wallet(localStorage.getItem('sessionPrivateKey')!);
-              console.log(wallet)
-              if(props.score != 0 && !block){
-                props.setScore(0)
-                block = true
-                await sendScoreTx(props.score, sessionWallet.address, await wallet.getAddress())
-              }
+      if(!authorizing){
 
-              alert('GAME OVER')
-              block = false
+        const ufoPosition = getRandomValue()
+          if(!block) {
+            console.log('setting ufo')
+            setPosition(ufoPosition)
+          }
+          setTimeout((ufoPosition: any) => {
+            setRayTeleport(true)
+            gameOverInterval = setInterval(async () => {
+              if(isBetween(props.cowPosition, ufoPosition, ufoPosition, 120)){
+                
+                const wallet = await sequence.getWallet()
+                const sessionWallet = new ethers.Wallet(localStorage.getItem('sessionPrivateKey')!);
+                console.log(wallet)
+                if(props.score != 0 && !block){
+                  props.setScore(0)
+                  block = true
+                  await sendScoreTx(props.score, sessionWallet.address, await wallet.getAddress())
+                }
 
-              if(props.score > Number(localStorage.getItem('highscore'))){
-                localStorage.setItem('highscore', String(props.score) )
+                // block = false
+
+                // alert('GAME OVER')
+
+                if(props.score > Number(localStorage.getItem('highscore'))){
+                  localStorage.setItem('highscore', String(props.score) )
+                }
+                clearInterval(gameOverInterval)
               }
-              clearInterval(gameOverInterval)
-            }
-          }, 200)
-          setTimeout(() => {
-            setRayTeleport(false)
-          }, 2000)
-        }, 1000, ufoPosition)
-        props.setScore((prev: any) => prev + 10)
+            }, 200)
+            setTimeout(() => {
+              setRayTeleport(false)
+            }, 2000)
+          }, 1000, ufoPosition)
+
+          if(props.mode == 'regular' && !block){
+            const walletSignedIn = sequence.getWallet()
+        
+            const signer = await walletSignedIn.getSigner()
+            console.log(signer)
+            const authorizationMessage = `Signing score ${props.score + 10}.`
+
+            const signature = await signer.signMessage(authorizationMessage)
+            console.log(signature)
+          }
+
+          props.setScore((prev: any) => prev + 10)
+          block = false
+        }
         
       }, 3000)
     return () => {
       window.clearInterval(timer)
       window.clearInterval(gameOverInterval)
     };
-  }, [rayTeleport, position, props.score])
+
+  }, [rayTeleport, position, props.score, authorizing])
 
   return (
     <div
@@ -287,21 +337,6 @@ function Login(props: any) {
       sessionWallet = new ethers.Wallet(localStorage.getItem('sessionPrivateKey')!);
     }
 
-    const authorizationMessage = `Authorize this device to play this game.`
-    const walletSignedIn = sequence.getWallet()
-    
-    const signer = await walletSignedIn.getSigner()
-    console.log(signer)
-
-    try{
-      setTimeout(async () => {
-        const signature = await signer.signMessage(authorizationMessage)
-        console.log(signature)
-      }, 200)
-    }catch(e){
-      console.log(e)
-    }
-
     if(connectWallet.connected == true) props.setIsLoggedIn(true)
 
   }
@@ -322,7 +357,13 @@ function Login(props: any) {
       />
       <br/>
       <br/>
-      <button className='connect-button' onClick={connect}>login</button>
+      {
+        !props.isLoggedIn 
+        ?
+        <button className='connect-button' onClick={connect}>login</button>
+        :
+        <><button className='connect-button' onClick={() => props.setMode('noconf')}>no confirmation signatures</button><br/><button className='connect-button' onClick={() => props.setMode('regular')}>regular</button></>
+      }
     </>
   )
 }
@@ -332,6 +373,7 @@ function App() {
   const [score, setScore] = useState(0)
   const [highScore, setHighScore] = useState(Number(localStorage.getItem("highscore")))
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [mode, setMode] = useState(null)
 
   sequence.initWallet('mumbai')
 
@@ -358,15 +400,15 @@ function App() {
   return (
     <div className="App">
       {
-        isLoggedIn ? 
+        isLoggedIn && (mode != null) ? 
         <>
           <Leaderboard />
-          <UfoSky score={score} setScore={setScore} cowPosition={cowPosition}/>
+          <UfoSky mode={mode} score={score} setScore={setScore} cowPosition={cowPosition}/>
           <CowControl cowPosition={cowPosition} setCowPosition={setCowPosition} />
           <div className='instructions'>{'click on the cow and navigate with < > keys'}</div>
           <div className='score'>{`score: ${score} | highscore: ${highScore}`}</div>
         </>
-        : <Login setIsLoggedIn={setIsLoggedIn}/>
+        : <Login isLoggedIn={isLoggedIn} setMode={setMode} setIsLoggedIn={setIsLoggedIn}/>
       }
     </div>
   );
